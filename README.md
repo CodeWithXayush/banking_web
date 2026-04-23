@@ -5,6 +5,12 @@ This project simulates basic banking operations like account creation, login, de
 
 ---
 
+## Live DEMO
+
+https://bankingweb.streamlit.app/
+
+
+---
 ## 🚀 Features
 
 * 👤 Create New Account
