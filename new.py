@@ -1,198 +1,123 @@
-from flask import Flask, request, redirect, session, render_template_string
+import streamlit as st
 import sqlite3
-
-app = Flask(__name__)
-app.secret_key = "secret123"
 
 # ---------------- DATABASE ----------------
 def connect():
-    return sqlite3.connect("users.db")
+    return sqlite3.connect("users.db", check_same_thread=False)
 
-def create_table():
-    conn = connect()
-    cur = conn.cursor()
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        account_no TEXT UNIQUE,
-        password TEXT,
-        balance REAL
-    )
-    """)
-    conn.commit()
-    conn.close()
+conn = connect()
+cur = conn.cursor()
 
-create_table()
+cur.execute("""
+CREATE TABLE IF NOT EXISTS users(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    account_no TEXT UNIQUE,
+    password TEXT,
+    balance REAL
+)
+""")
+conn.commit()
 
-# ---------------- HTML TEMPLATES ----------------
+# ---------------- SESSION ----------------
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-index_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>Bank</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-dark text-white">
-
-<div class="container mt-5">
-<div class="card p-4">
-<h2 class="text-center text-primary">🏦 Smart Bank</h2>
-
-<form action="/create" method="post">
-<input class="form-control mb-2" name="name" placeholder="Name">
-<input class="form-control mb-2" name="acc" placeholder="Account No">
-<input class="form-control mb-2" name="pwd" type="password" placeholder="Password">
-<button class="btn btn-success w-100">Create Account</button>
-</form>
-
-<hr>
-<a href="/login" class="btn btn-primary w-100">Login</a>
-
-</div>
-</div>
-</body>
-</html>
-"""
-
-login_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>Login</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-secondary">
-
-<div class="container mt-5">
-<div class="card p-4">
-<h2 class="text-center">Login</h2>
-
-<form method="post">
-<input class="form-control mb-3" name="acc" placeholder="Account Number">
-<input class="form-control mb-3" name="pwd" type="password" placeholder="Password">
-<button class="btn btn-success w-100">Login</button>
-</form>
-
-</div>
-</div>
-</body>
-</html>
-"""
-
-dashboard_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<title>Dashboard</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-
-<div class="container mt-5">
-<div class="card p-4">
-
-<h2 class="text-center text-success">Dashboard</h2>
-<h4 class="text-center">Balance: ₹{{balance}}</h4>
-
-<form method="post">
-<input class="form-control mb-3" name="amt" placeholder="Amount">
-<button class="btn btn-success w-50" name="action" value="deposit">Deposit</button>
-<button class="btn btn-danger w-50" name="action" value="withdraw">Withdraw</button>
-</form>
-
-<br>
-<a href="/logout" class="btn btn-dark w-100">Logout</a>
-
-</div>
-</div>
-</body>
-</html>
-"""
-
-# ---------------- ROUTES ----------------
-
-@app.route("/")
-def home():
-    return render_template_string(index_html)
-
-@app.route("/create", methods=["POST"])
-def create():
-    name = request.form["name"]
-    acc = request.form["acc"]
-    pwd = request.form["pwd"]
-
-    conn = connect()
-    cur = conn.cursor()
-
+# ---------------- FUNCTIONS ----------------
+def create_account(name, acc, pwd):
     try:
         cur.execute("INSERT INTO users(name, account_no, password, balance) VALUES (?, ?, ?, ?)",
                     (name, acc, pwd, 0))
         conn.commit()
-        msg = "Account Created"
+        return True
     except:
-        msg = "Account already exists"
+        return False
 
-    conn.close()
-    return f"{msg} <br><a href='/'>Go Back</a>"
+def login(acc, pwd):
+    cur.execute("SELECT * FROM users WHERE account_no=? AND password=?", (acc, pwd))
+    return cur.fetchone()
 
-@app.route("/login", methods=["GET","POST"])
-def login():
-    if request.method == "POST":
-        acc = request.form["acc"]
-        pwd = request.form["pwd"]
-
-        conn = connect()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE account_no=? AND password=?", (acc, pwd))
-        user = cur.fetchone()
-        conn.close()
-
-        if user:
-            session["acc"] = acc
-            return redirect("/dashboard")
-        else:
-            return "Wrong details"
-
-    return render_template_string(login_html)
-
-@app.route("/dashboard", methods=["GET","POST"])
-def dashboard():
-    acc = session.get("acc")
-
-    if not acc:
-        return redirect("/login")
-
-    conn = connect()
-    cur = conn.cursor()
-
-    if request.method == "POST":
-        amt = float(request.form["amt"])
-        action = request.form["action"]
-
-        if action == "deposit":
-            cur.execute("UPDATE users SET balance = balance + ? WHERE account_no=?", (amt, acc))
-        elif action == "withdraw":
-            cur.execute("SELECT balance FROM users WHERE account_no=?", (acc,))
-            bal = cur.fetchone()[0]
-            if bal >= amt:
-                cur.execute("UPDATE users SET balance = balance - ? WHERE account_no=?", (amt, acc))
-
-        conn.commit()
-
+def get_balance(acc):
     cur.execute("SELECT balance FROM users WHERE account_no=?", (acc,))
-    balance = cur.fetchone()[0]
+    return cur.fetchone()[0]
 
-    conn.close()
+def deposit(acc, amt):
+    cur.execute("UPDATE users SET balance = balance + ? WHERE account_no=?", (amt, acc))
+    conn.commit()
 
-    return render_template_string(dashboard_html, balance=balance)
+def withdraw(acc, amt):
+    cur.execute("SELECT balance FROM users WHERE account_no=?", (acc,))
+    bal = cur.fetchone()[0]
+    if bal >= amt:
+        cur.execute("UPDATE users SET balance = balance - ? WHERE account_no=?", (amt, acc))
+        conn.commit()
+        return True
+    return False
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
+# ---------------- UI ----------------
 
-# ---------------- RUN ----------------
-if __name__ == "__main__":
-    app.run(debug=True)
+st.title("🏦 Smart Banking System")
+
+menu = ["Home", "Login", "Create Account"]
+choice = st.sidebar.selectbox("Menu", menu)
+
+# ---------------- HOME ----------------
+if choice == "Home":
+    st.subheader("Welcome to Smart Bank")
+    st.write("Create account or login to continue")
+
+# ---------------- CREATE ACCOUNT ----------------
+elif choice == "Create Account":
+    st.subheader("Create New Account")
+
+    name = st.text_input("Name")
+    acc = st.text_input("Account Number")
+    pwd = st.text_input("Password", type="password")
+
+    if st.button("Create Account"):
+        if create_account(name, acc, pwd):
+            st.success("Account Created Successfully")
+        else:
+            st.error("Account already exists")
+
+# ---------------- LOGIN ----------------
+elif choice == "Login":
+    st.subheader("Login")
+
+    acc = st.text_input("Account Number")
+    pwd = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        user = login(acc, pwd)
+        if user:
+            st.session_state.user = acc
+            st.success("Login Successful")
+        else:
+            st.error("Invalid Details")
+
+# ---------------- DASHBOARD ----------------
+if st.session_state.user:
+    st.sidebar.success("Logged In")
+
+    st.subheader("Dashboard")
+
+    balance = get_balance(st.session_state.user)
+    st.write(f"💳 Balance: ₹{balance}")
+
+    amt = st.number_input("Enter Amount", min_value=0.0)
+
+    col1, col2 = st.columns(2)
+
+    if col1.button("Deposit"):
+        deposit(st.session_state.user, amt)
+        st.success("Deposited")
+
+    if col2.button("Withdraw"):
+        if withdraw(st.session_state.user, amt):
+            st.success("Withdraw Successful")
+        else:
+            st.error("Insufficient Balance")
+
+    if st.button("Logout"):
+        st.session_state.user = None
+        st.rerun()
