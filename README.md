@@ -8,6 +8,12 @@ This project simulates basic banking operations like account creation, login, de
 ## Live DEMO
 
 https://bankingweb.streamlit.app/
+<img width="1918" height="850" alt="image" src="https://github.com/user-attachments/assets/a502db14-c246-4ca2-ba39-871ca3f7434f" />
+
+<img width="1919" height="799" alt="image" src="https://github.com/user-attachments/assets/90611cfc-6325-4ebf-a2dc-8f14a5221427" />
+
+<img width="1914" height="879" alt="image" src="https://github.com/user-attachments/assets/2e88c544-0440-4f08-ac05-beec7f64574c" />
+
 
 
 ---
