@@ -85,9 +85,11 @@ http://127.0.0.1:5000
 * Login Page
 * Dashboard
 
-![alt text](image-1.png)
+<img width="1916" height="827" alt="image" src="https://github.com/user-attachments/assets/0d04a7dc-45f6-45be-902c-24ca92fa1dd7" />
 
-![alt text](image-2.png)
+<img width="1917" height="776" alt="image" src="https://github.com/user-attachments/assets/fe4298f4-af75-4f18-92ca-f24658a9788a" />
+
+
 ---
 
 ## 🎯 Purpose
